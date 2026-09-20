@@ -1,0 +1,3 @@
+# Prefer runtime Windows preference overrides
+
+Use Windows' plugged-in preferences as the source for all five preserved settings and prefer temporary runtime overrides, avoiding changes to saved battery preferences where supported. The user permits a saved-setting fallback with restoration when necessary, with explicit battery-setting edits taking priority for the rest of a pause, because runtime-only support for all five controls is unproven. Automatic service restart and restoration on recovery are accepted; non-persistent changes must not be assumed to revert automatically on process failure.

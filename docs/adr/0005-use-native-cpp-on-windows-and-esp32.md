@@ -1,0 +1,3 @@
+# Use native C++ on Windows and ESP32
+
+The user selected a native C++ Windows service and Win32 tray/dialog, with ESP-IDF C++ firmware and Arduino as a supported component, fitting the small Windows UI and permitting shared portable protocol code. Keep BLE for the device connection and restricted local named pipes for service/UI communication; verify service BLE access before sign-in in a prototype. Both connections use shared C++ definitions with explicit serialization, with separate tray/service and service/ESP32 contracts; the user chose this over MIDL-generated RPC and raw struct-memory transmission.

@@ -9,11 +9,23 @@ The external power adapter that supplies power to the laptop.
 _Avoid_: Controller, switch
 
 **Power switch**:
-The external device inserted between the charger output and the laptop power input that allows or interrupts power to the laptop.
+The external device that allows or interrupts the charger's supply of power to the laptop.
 _Avoid_: Charger
 
 **Charging enabled**:
 The state in which the power switch permits charger power to reach the laptop. The battery may already be full and need no charging current.
+
+**Operating mode**:
+The user's charging intent: normal threshold control or charge-to-full. It is distinct from the current switch state.
+
+**Charger output voltage**:
+The measured voltage at the charger's DC output. Voltage presence alone does not establish current flow or battery charging.
+
+**Battery-reading retry window**:
+The time allowed to recover usable battery information before enabling charging as a fallback. It is separate from loss-of-communication recovery.
+
+**Output-voltage mismatch**:
+Observed charger output that remains energized after a request to interrupt power and the allowed settling time.
 
 **Battery level**:
 The laptop's reported remaining battery charge, expressed as a percentage.
