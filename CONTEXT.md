@@ -39,8 +39,14 @@ The lower battery level at which charger power is restored during threshold cont
 **Stop threshold**:
 The upper battery level at which charger power is interrupted during threshold control.
 
+**Threshold gap**:
+The difference in percentage points between the stop and resume thresholds. The resume threshold equals the stop threshold minus this gap.
+
 **Managed charging pause**:
 An intentional interruption of charger power to keep the battery within its configured range while the laptop remains under the device's control.
+
+**Manual suspension**:
+A user-requested suspension of automatic threshold control with charger power permitted and normal battery preferences restored. It is distinct from a managed charging pause, which interrupts charger power.
 
 **Plugged-in preferences**:
 The user's selected performance and display preferences for working with the charger, also preserved during a managed charging pause.
@@ -49,4 +55,4 @@ The user's selected performance and display preferences for working with the cha
 A user request to prepare the laptop for use away from its charger by allowing the battery to reach full charge.
 
 **Departure mode**:
-The temporary override started by a full-charge request, which keeps charger power enabled until the user unplugs to leave or cancels the request.
+The temporary override started by a full-charge request, which keeps charger power enabled until a departure is confirmed or the request is canceled.

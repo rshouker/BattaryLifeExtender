@@ -1,8 +1,8 @@
 # Project discovery
 
-Status: synthesized into a [specification](specs/battery-charge-controller.md) at the user's request. This document retains the interview decisions and unresolved questions. The service integration test boundary and automated BLE prototype approach are accepted. The user selected [GitHub Issues](https://github.com/rshouker/BattaryLifeExtender/issues) as the project tracker, with `ready-for-agent` as the specification workflow label.
+Status: synthesized into a [specification](specs/battery-charge-controller.md) at the user's request, with the interview recorded through D44 on 2026-09-21. D37 remains deferred. This document retains the interview decisions and unresolved questions. The service integration test boundary and automated BLE prototype approach are accepted. The user selected [GitHub Issues](https://github.com/rshouker/BattaryLifeExtender/issues) as the project tracker, with `ready-for-agent` as the specification workflow label.
 
-The specification is published as [issue #1](https://github.com/rshouker/BattaryLifeExtender/issues/1), labeled `ready-for-agent`. Open design dependencies remain recorded in that issue.
+An earlier specification revision was published as [issue #1](https://github.com/rshouker/BattaryLifeExtender/issues/1), labeled `ready-for-agent`. This repository revision includes later decisions; the issue was not synchronized as part of this update.
 
 ## Starting requirements
 
@@ -25,18 +25,24 @@ The specification is published as [issue #1](https://github.com/rshouker/Battary
   - Exact switch, driver, independent supply and charger restart behavior remain open
   - Hardware construction and enclosure
 - Charging policy
-  - Configurable thresholds, initially resume at 76% and stop at 80%, agreed
-  - Full-charge request keeps power enabled until departure or manual cancellation, agreed
+  - Upper-threshold and gap presets with Apply, initially upper 80% and gap 4 points, agreed
+  - Full-charge request keeps power enabled until confirmed departure or cancellation, agreed
   - Departure mode survives sleep and restart, agreed
+  - Unobserved departure preserves the request; a request made while unplugged waits without expiring, agreed
+  - Notify on power return after at least 30 minutes without power for a pending full-charge request, agreed
   - Loss of communication during sleep or shutdown can permit charging above 80%, accepted
 - Loss of control
   - Restore charger power after 60 seconds without communication, agreed
-  - Recovery and manual override
+  - Confirmed manual suspension restores battery preferences and permits charging; detected external power overrides it, agreed
+  - Windows wins saved operating-mode conflicts with the ESP32, agreed
+  - Use Windows feedback on unreliable voltage sensing, with persistent warnings and a separate fault LED, agreed
+  - Sensor recovery rule deferred under D37
 - Windows and Bluetooth behavior
-  - Explicit one-device pairing with a physical pairing action and automatic reconnection, agreed
+  - Physical action opens a three-minute pairing window; successful pairing replaces the old computer, agreed
+  - Current control continues during the window; successful replacement enables charging until new service commands, agreed
   - Preserve all five agreed plugged-in settings together; runtime overrides preferred, saved-setting fallback permitted
   - Restoring normal battery-dependent settings when communication is lost and the laptop is on battery
-  - Service and tray responsibilities
+  - Service supplies settings and controls charging independently; tray starts at owner sign-in, agreed
   - Settings ownership, status reporting, and installation
 
 ## Decisions
@@ -73,9 +79,9 @@ The [inline-switch feasibility research](research/inline-power-switch-feasibilit
 - Charger AC input and startup characteristics, ESP32 board, relay/SSR, driver, independent supply and enclosure. AC-side placement and independent controller power are settled; the original USB-C connection remains intact.
 - Verify runtime APIs for all five Windows controls and design fallback ownership/recovery where needed.
 - Electrical implementation of the agreed charging-enabled startup state, plus behavior if controller power or firmware fails. The accepted communication watchdog assumes a functioning controller with input power.
-- Finalize unseen departure during sleep, mode-record reconciliation and reentry after the manual battery-settings action. Delayed detection during a pause is accepted.
+- Design exact departure evidence and mode-synchronization messages under the agreed rules: unseen departure preserves the request, Windows wins saved-mode conflicts, and detected external power clears manual suspension. Delayed detection during a pause is accepted.
 - Implement the agreed service-restart restoration and explicit user-edit precedence; validate user/session scope.
-- Complete protocol/authentication, installation, timing bounds and voltage fault-clear details within the agreed pairing, status, retry and test policies.
+- Complete protocol/authentication, installation, timing bounds and voltage fault-clear details within the agreed pairing, status, retry and test policies. Return to explicitly deferred D37 before selecting a sensor recovery rule.
 
 ## Implementation-design interview
 
@@ -161,12 +167,12 @@ The user requested one question at a time and deferred recording until explicitl
 | D11 | Automatically restart the service and restore appropriate Windows preferences on recovery. A brief recovery interval is accepted; no independent fixed-deadline settings-recovery process is required in V1. |
 | D12 | On failed/stale battery readings with communication alive, retain relay state and retry every 10 seconds for a configurable window, default three minutes from the first failure. Repeated failures do not restart the timer. At expiry permit charging until fresh readings return. The separate 60-second communication watchdog remains active. |
 | D13 | On a new/recovered session without trustworthy prior state, a fresh reading strictly between thresholds makes the service pause until the resume threshold. This supersedes the earlier recommendation to charge toward the stop threshold. ESP32 boot still initially enables charging. |
-| D14 | Apply threshold edits immediately: enable at/below new resume, pause at/above new stop, retain current state inside the new band. Departure mode takes precedence. |
+| D14 | Reevaluate saved threshold edits immediately: enable at/below new resume, pause at/above new stop, retain current state inside the new band. Departure mode takes precedence. D38-D39 later select upper/gap presets saved together with Apply. |
 | D15 | Pair one explicitly selected ESP32 during setup and automatically reconnect afterward, including before sign-in. Device replacement requires "Change device." |
 | D16 | A physical button action opens a short new-pairing window; existing paired-device reconnection needs no button press. |
 | D17 | Normally closed relay contacts enable charging with an unpowered coil or ESP32 off. Energize the coil to pause. The later SSR design must deliberately preserve the agreed default. |
-| D18 | Ordinary cycles are silent. Notify only for persistent problems requiring attention. Include a device status light. |
-| D19 | Low-brightness RGB LED: steady green for charging enabled, amber for pause, red for fault. Blinking blue only for incomplete pairing. Blinking is distracting to the user; do not blink for faults or normal operation. |
+| D18 | Ordinary cycles are silent. Notify for persistent problems requiring attention. Include a device status light. D30 and D33 later add explicit manual-cancellation and delayed-full-charge notifications. |
+| D19 | Originally one low-brightness RGB LED: green for charging enabled, amber for pause, red for fault, blinking blue only for incomplete pairing. D36 supersedes fault indication with a dedicated red LED. No blinking for faults or normal operation. |
 | D20 | Retain 30 days of local battery levels, power transitions and faults; remove older records automatically and offer CSV export. |
 | D21 | Include a divider/ADC measurement of the charger's USB-C DC output in finished V1, deferred only from the initial BLE prototype. Distinguish measured voltage from applied relay state and battery charging. |
 | D22 | If commanded off but voltage remains after settling time, alert and show steady red. Permit charging between retries. Retry after 30 seconds, then 1, 2, 4, 8 and 10 minutes; remain at 10-minute intervals. Delays start after the preceding failure and each attempt reevaluates current policy. This supersedes the earlier manual-Retry-only proposal. |
@@ -174,12 +180,41 @@ The user requested one question at a time and deferred recording until explicitl
 
 The [current spec](specs/battery-charge-controller.md) applies these decisions throughout the behavior, hardware and acceptance sections. [ADR 0006](adr/0006-prefer-runtime-windows-preference-overrides.md) records the preference-override tradeoff. The [runtime override research](research/windows-runtime-power-overrides.md) documents the supported non-persistent policy route and its limits; the [IPC comparison](research/tray-service-contract.md) supports D4a.
 
+## Decisions recorded through D44, 2026-09-21
+
+The user authorized recording this batch, committing it and pushing it after answering D44. Continue future interview questions one at a time and keep later answers in the conversation until the user again asks to record them. D37 was explicitly postponed and is not an accepted rule. The specification holds current behavior; this register preserves the decision sequence and corrections.
+
+| Decision | Outcome |
+| --- | --- |
+| D24 | If neither endpoint captured reliable evidence of an unplug/replug during sleep or downtime, keep the full-charge request active until confirmed departure or cancellation. Accept that an unobserved trip can leave it active after return. |
+| D25 | Windows wins when saved operating modes disagree. Persist the user's choice before sending it and synchronize the ESP32 on reconnection; its stale mode cannot resurrect a canceled request. Charging-enabled startup and the 60-second fallback still apply. |
+| D26 | Retain "Use battery settings now" with confirmation. On confirmation, restore battery preferences, permit charger power and suspend automatic threshold control. No added AC sensor was selected for this action. |
+| D27 | Windows-detected external power takes priority and clears manual suspension. Offer the action only without external power. Use a modeless confirmation that closes if power returns; recheck at submission so a simultaneous return wins. Manual "Resume automatic control" is also available. Bluetooth reconnection alone does not clear suspension. This supersedes the proposal to require a later disconnect/reconnect if power was already present. |
+| D28 | Persist manual suspension across service restart and Windows reboot. It ends on detected external power or explicit resumption; D31 also permits a new full-charge request to clear it. |
+| D29 | Confirming the manual action cancels an active full-charge request, with user notification. |
+| D30 | Warn about full-charge cancellation in the existing confirmation and notify after success. No extra confirmation step. If power returns before confirmation, close the dialog without canceling the request or showing success. |
+| D31 | "Charge to full" during manual suspension clears suspension, permits charger power and activates the request. While unplugged, show waiting-for-power status and retain normal battery preferences. |
+| D32 | A full-charge request made while unplugged does not expire. Proceed with full charging when power returns; 30 minutes without power is the notification threshold. |
+| D33 | Notify only when power returns after at least 30 minutes without it, explaining that the earlier full-charge request is proceeding. Charge automatically and offer "Cancel full charge." Do not notify simply when the waiting timer reaches 30 minutes. |
+| D34 | If the voltage sensor is unreliable, continue threshold control using usable Windows external-power feedback and notify the user. This rejects the proposal to suspend pauses solely because the sensor failed. Unknown readings are not zero voltage, and battery charging indication is not external-power presence. |
+| D35 | Show one initial sensor-fault notification and a persistent tray warning badge with menu details. Dismissing the notification leaves the badge active until sensor recovery. The recovery definition remains deferred under D37. |
+| D36 | Add a dedicated low-brightness, steady red fault LED. Keep the main RGB LED for charging enabled in green, pause in amber and incomplete pairing in blinking blue. This replaces D19's use of the RGB red state for faults. |
+| D37 | **Deferred by the user.** Return later to the sensor recovery/clear rule. The suggested 30 seconds of valid, comparable readings was not accepted. |
+| D38 | Expose upper-threshold presets of 90%, 85%, 82%, 80%, 78% and 75%, and gap presets of 2 through 8 percentage points in steps of one. Derive resume as upper minus gap. Defaults remain upper 80%, gap 4, resume 76%. |
+| D39 | Show the derived resume threshold and save both selections together using Apply. Only then reevaluate active control under the existing threshold rules. |
+| D40 | Physical button action opens pairing for three minutes. Close on success; expiry requires another button action. Remembered-computer reconnection remains automatic. |
+| D41 | Allow one paired computer. Successful new pairing removes the previous computer's access. Opening the window, failure and timeout preserve the existing pairing. |
+| D42 | Continue current control while the pairing window is open. On successful replacement, end the old control session, enable charger power and wait for fresh commands from the new computer. |
+| D43 | The service supplies initial settings when it connects. Until then the ESP32 permits charging; temporary defaults do not start independent cycling. The user did not select the proposed separate default/import policy for a replacement computer. |
+| D44 | Start the tray automatically when the owner's Windows account signs in. The service starts before sign-in and operates independently. |
+
 ### Remaining questions and validation
 
-- How mode records in Windows and ESP32 reconcile, and how unseen departure during sleep is handled. The previous proposal to retain a full-charge request in every ambiguous case was not explicitly accepted; do not silently treat flash persistence as that answer.
-- When automatic control resumes after "Use battery settings now."
+- **D37: revisit sensor recovery.** No duration, matching rule or automatic fault-clear test has been accepted.
+- Exact departure evidence and synchronization protocol under the accepted D24-D25 behavior; unknown Windows power status and simultaneous-event handling beyond the confirmed power-return rule.
+- Timing and persistence mechanics for the delayed full-charge notification across sleep and restart.
 - Before-login BLE access, Windows API/session ownership, and runtime override support and release for all five controls.
-- Exact components and voltage-sensing circuit, startup/shutdown measurements, voltage thresholds, sensor validity, fault ownership and clear criteria.
-- Pairing window/authentication details, protocol fields, stale-reading definition, configuration bounds, timing and deployment/uninstall details.
+- Exact components and voltage-sensing circuit, startup/shutdown measurements, voltage thresholds, sensor validity/disagreement criteria, simultaneous loss of sensor and Windows feedback, fault ownership and aggregation.
+- Pairing authentication/button gesture and replacement protocol, message fields, stale-reading definition, battery-retry-window bounds, timing and deployment/uninstall details. Threshold choices and pairing-window duration are settled.
 
-No implementation, settings changes or hardware tests were authorized by this recording step.
+This step authorizes documentation, commit and push. Implementation, Windows settings changes and hardware tests remain outside its scope.
